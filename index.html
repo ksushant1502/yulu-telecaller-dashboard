@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yulu Telecaller Dashboard — Live</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9; --card:#ffffff; --border:#e2e6ec; --text:#1a2233; --text-dim:#65708a;
+  --accent:#2f6fed; --accent-soft:#e8f0fe; --green:#1a9c5c; --amber:#d68a11; --red:#d43a3a; --purple:#7c4fe0; --teal:#0f9a94;
+  --shadow: 0 1px 3px rgba(20,30,60,0.08), 0 1px 2px rgba(20,30,60,0.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1420; --card:#171d2b; --border:#2a3245; --text:#e7ebf5; --text-dim:#93a0bd;
+    --accent:#5b8dfb; --accent-soft:#1c2740; --green:#33c17e; --amber:#e0a53a; --red:#f0605d; --purple:#a082f0; --teal:#3ec9c2;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1420; --card:#171d2b; --border:#2a3245; --text:#e7ebf5; --text-dim:#93a0bd;
+  --accent:#5b8dfb; --accent-soft:#1c2740; --green:#33c17e; --amber:#e0a53a; --red:#f0605d; --purple:#a082f0; --teal:#3ec9c2;
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; min-height:100vh;}
+.container{max-width:1220px; margin:0 auto; padding:20px 16px 60px;}
+header.topbar{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:14px 0 10px; border-bottom:1px solid var(--border); margin-bottom:10px;}
+.brand{display:flex; align-items:center; gap:10px;}
+.brand-title{font-size:17px; font-weight:800; letter-spacing:-0.2px;}
+.badge{font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:0.4px;}
+.badge.admin{background:var(--accent-soft); color:var(--accent);}
+.badge.public{background:var(--border); color:var(--text-dim);}
+.controls-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+button{font:inherit; cursor:pointer; border:1px solid var(--border); background:var(--card); color:var(--text); padding:7px 13px; border-radius:8px; font-size:13px; font-weight:600; transition:all .12s;}
+button:hover{border-color:var(--accent); color:var(--accent);}
+button.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+button.primary:hover{opacity:0.9; color:#fff;}
+button.active{background:var(--accent-soft); border-color:var(--accent); color:var(--accent);}
+button.ghost{border-color:transparent; background:transparent;}
+input[type="date"], input[type="text"], input[type="email"], input[type="password"], select{font:inherit; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:13px;}
+.tabs{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--border); padding-bottom:0;}
+.tab-btn{border:none; background:transparent; padding:9px 14px; font-size:13.5px; font-weight:600; color:var(--text-dim); border-bottom:2px solid transparent; border-radius:0;}
+.tab-btn:hover{color:var(--accent); border-color:transparent;}
+.tab-btn.active{color:var(--accent); border-bottom:2px solid var(--accent);}
+.kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:22px;}
+.kpi{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:var(--shadow);}
+.kpi.kpi-clickable{cursor:pointer; transition:border-color .12s, box-shadow .12s;}
+.kpi.kpi-clickable:hover{border-color:var(--accent);}
+.kpi.kpi-clickable.active{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft);}
+.kpi-label{font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px;}
+.kpi-value{font-size:26px; font-weight:800; letter-spacing:-0.5px;}
+.kpi-sub{font-size:11.5px; color:var(--text-dim); margin-top:4px;}
+.section{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:18px; box-shadow:var(--shadow); overflow-x:auto;}
+.section h2{margin:0 0 14px; font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:10px;}
+table{width:100%; border-collapse:collapse; font-size:13px; min-width:480px;}
+th{text-align:left; padding:8px 10px; color:var(--text-dim); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.3px; border-bottom:1px solid var(--border); white-space:nowrap;}
+td{padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--accent-soft);}
+.pct-green{color:var(--green); font-weight:700;} .pct-amber{color:var(--amber); font-weight:700;} .pct-red{color:var(--red); font-weight:700;} .pct-blue{color:var(--accent); font-weight:700;}
+.type-pill{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:12px; text-transform:uppercase;}
+.type-ent{background:#e8f0fe; color:#2f6fed;} .type-ret{background:#e6f7f5; color:#0f9a94;} .type-im{background:#fdf1dc; color:#b8790c;} .type-ybp{background:#f1eafd; color:#7c4fe0;} .type-exp{background:#fde8f0; color:#c23b78;} .type-other{background:var(--border); color:var(--text-dim);}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .type-ent{background:#1c2740;} :root:not([data-theme="light"]) .type-ret{background:#0f2d2b;} :root:not([data-theme="light"]) .type-im{background:#2e2412;} :root:not([data-theme="light"]) .type-ybp{background:#241a3d;} :root:not([data-theme="light"]) .type-exp{background:#2e1522;} }
+.empty-state{text-align:center; padding:40px 20px; color:var(--text-dim); font-size:14px;}
+.chart-wrap{height:260px; position:relative;}
+.chart-wrap.small{height:200px;}
+.overlay{position:fixed; inset:0; background:rgba(10,14,25,0.55); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px;}
+.modal{background:var(--card); border-radius:14px; padding:22px; max-width:600px; width:100%; max-height:88vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,0.3);}
+.modal h3{margin:0 0 16px; font-size:16px;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:5px;}
+.field select, .field input{width:100%;}
+.field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
+.hint{font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:12px;}
+.toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg); padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; z-index:200; box-shadow:var(--shadow);}
+.range-summary{font-size:12.5px; color:var(--text-dim); margin-bottom:16px;}
+.file-drop{border:2px dashed var(--border); border-radius:10px; padding:24px; text-align:center; cursor:pointer; font-size:13px; color:var(--text-dim);}
+.file-drop:hover{border-color:var(--accent); color:var(--accent);}
+.spinner{display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.footer-note{font-size:11.5px; color:var(--text-dim); text-align:center; margin-top:30px;}
+.checklist{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
+.checklist label{display:flex; align-items:center; gap:5px; font-size:12.5px; font-weight:500; background:var(--bg); border:1px solid var(--border); padding:5px 9px; border-radius:8px; cursor:pointer;}
+.admin-only-note{font-size:12.5px; color:var(--text-dim); background:var(--accent-soft); padding:10px 14px; border-radius:8px; margin-bottom:14px;}
+.insight-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-bottom:18px; align-items:start;}
+.insight-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:var(--shadow);}
+.insight-card.active{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft);}
+.insight-card h3{margin:0 0 4px; font-size:14px; font-weight:700; line-height:1.3;}
+.insight-card .insight-total{font-size:11.5px; color:var(--text-dim); margin-bottom:10px;}
+.insight-bar-row{padding:8px 0; border-bottom:1px solid var(--border); cursor:pointer;}
+.insight-bar-row:last-child{border-bottom:none;}
+.insight-bar-row:hover{background:var(--accent-soft); margin:0 -16px; padding:8px 16px; border-radius:6px;}
+.insight-bar-top{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:6px;}
+.insight-bar-label{font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
+.insight-bar-count{font-size:12.5px; font-weight:700; color:var(--text-dim); flex:0 0 auto;}
+.insight-bar-track{height:8px; background:var(--border); border-radius:5px; overflow:hidden;}
+.insight-bar-fill{height:100%; background:var(--accent); border-radius:5px; min-width:2px;}
+.filter-bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px;}
+.flag-chip{font-size:11px; font-weight:700; padding:3px 9px; border-radius:12px;}
+.flag-short{background:#fdf1dc; color:#b8790c;} .flag-misconduct{background:#fde3e3; color:#c23b3b;} .flag-callback{background:#e8f0fe; color:#2f6fed;} .flag-form{background:var(--border); color:var(--text-dim);} .flag-hot{background:#e6f7ea; color:#1a9c5c;}
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="topbar">
+    <div class="brand">
+      <span style="font-size:22px;">📞</span>
+      <div>
+        <div class="brand-title">Yulu Telecaller Dashboard</div>
+        <div id="roleBadgeWrap"></div>
+      </div>
+    </div>
+    <div class="controls-row" id="uploadControls"></div>
+  </header>
+
+  <div class="tabs" id="tabNav"></div>
+  <div class="controls-row" id="filterControls" style="margin-bottom:6px;"></div>
+  <div class="range-summary" id="rangeSummary"></div>
+  <div id="app"></div>
+  <div class="footer-note">Live daily-upload dashboard · aggregates visible to all viewers · row-level detail restricted to editors</div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+(function(){
+
+// ===================== SUPABASE CONFIG =====================
+const SUPABASE_URL = 'https://knnmfgmmlrcetejaktox.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtubm1mZ21tbHJjZXRlamFrdG94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5ODkxOTcsImV4cCI6MjEwNjU2NTE5N30.tGkJi61ihHHSmgx1GY1yUELwtDrBAZxwK3JYywdg7Fc';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ===================== CONSTANTS =====================
+const NON_CONNECT = ['call not connected','not applicable','call drop','answering machine','agent-nc','customer-nc','dnd-failure','no-disp','agent-cancelled','switched off','invalid number','wrong number','test call','telephony-failure'];
+const LOBS = ['Enterprise','Retention','Instamart','YBP','Experience','CityOps','Other'];
+const TYPE_GROUPS = { acquisition:['Enterprise','Instamart'], retention:['Retention','YBP'], experience:['Experience'] };
+const LOB_CLASS = {Enterprise:'type-ent',Retention:'type-ret',Instamart:'type-im',YBP:'type-ybp',Experience:'type-exp',CityOps:'type-other',Other:'type-other'};
+const CITIES = ['Bangalore','Mumbai','NCR'];
+const MISCONDUCT_KEYWORDS = ['abuse','abusive','threat','rude','misbehav','swear','harass','shout','argu'];
+const CALLBACK_KEYWORDS = ['callback','call back','follow up','followup'];
+const HOT_KEYWORDS = ['interested','intrested','converted','hot lead','ready to buy','wants to','will purchase','hot convert'];
+const NEGATION_RE = /\b(not|no|never|isn't|wasn't|won't|don't|doesn't|didn't|n't)\b\s*(\w+\s+){0,2}$/;
+function keywordHit(texts, keywords){
+  for(const text of texts){
+    if(!text) continue;
+    for(const kw of keywords){
+      let idx = text.indexOf(kw);
+      while(idx !== -1){
+        const before = text.slice(Math.max(0, idx-25), idx);
+        if(!NEGATION_RE.test(before)) return true;
+        idx = text.indexOf(kw, idx+1);
+      }
+    }
+  }
+  return false;
+}
+const AGENT_NAME_MAP = {
+  'anchal.m':'Anchal Mishra','anjali':'Anjali Maury','aparna':'Aparna Mishra','arti.b':'Arti Bhalavi',
+  'darshani':'Darshani Ghodmare','divya.m':'Divya Mishra','jagdeesh':'Jagdeesh Prasad','kalyani.s':'Kalyani Shukla',
+  'karishma':'Karishma Mansuri','manish':'Manish Kumar','manish.kumar':'Manish Kumar','pankaj':'Pankaj Baghel',
+  'priyanka.p':'Priyanka Pal','rajneesh':'Rajneesh Tiwari','rohit':'Rohit Kumar','sushma.s':'Sushma Sahare',
+  'tamanna':'Tamanna Dhurve','kiran':'Kiran K','meenakshi':'Meenakshi Singh','puja':'Puja p','shikha.y':'Shikha Yadav',
+  'sushma':'Sushma D','chandani':'Chandani Bano','vikas':'Vikas Agnihotri','krishna':'Krishna RS',
+  'jitendra.mishra':'Jitendra Mishra','kratika.shukla':'Kratika Shukla','rajkumar':'Rajkumar'
+};
+const EXCLUDED_CAMPAIGNS = new Set(['Incoming Calls','D2 Extension V1','OYC Pan India Q1','Payment failure Pan India 1','Retention calling V1 Q July','Soft Churn Pan India V1']);
+function isExcludedCampaign(name){ return EXCLUDED_CAMPAIGNS.has(String(name||'').trim()); }
+
+// ===================== UTIL =====================
+function isConnect(disp){ if(!disp) return false; return !NON_CONNECT.includes(String(disp).trim().toLowerCase()); }
+function pctClass(p){ if(p>=40) return 'pct-green'; if(p>=30) return 'pct-blue'; if(p>=22) return 'pct-amber'; return 'pct-red'; }
+function fmtPct(n){ return (isFinite(n)?n:0).toFixed(1)+'%'; }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function addDays(d,n){ const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
+function startOfWeek(d){ const x=new Date(d+'T00:00:00Z'); const day=x.getUTCDay(); const diff=(day===0?-6:1)-day; x.setUTCDate(x.getUTCDate()+diff); return x.toISOString().slice(0,10); }
+function startOfMonth(d){ return d.slice(0,7)+'-01'; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function normalizeAgent(name){ if(!name) return 'Unknown'; const key=String(name).trim().toLowerCase(); return AGENT_NAME_MAP[key] || String(name).trim(); }
+function parseTalkTime(v){
+  if(v===undefined||v===null||v==='') return 0;
+  if(typeof v==='number'){ return v<1 ? Math.round(v*86400) : Math.round(v); }
+  const s=String(v).trim();
+  if(/^\d+:\d{2}(:\d{2})?$/.test(s)){ const parts=s.split(':').map(Number); if(parts.length===3) return parts[0]*3600+parts[1]*60+parts[2]; return parts[0]*60+parts[1]; }
+  const n=parseFloat(s); if(!isNaN(n)) return n<1? Math.round(n*86400): Math.round(n);
+  return 0;
+}
+function toast(msg){ const el=document.createElement('div'); el.className='toast'; el.textContent=msg; document.getElementById('toastRoot').appendChild(el); setTimeout(()=>el.remove(),3400); }
+function csvEscape(v){ if(v==null) return ''; const s=String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+function rowsToCsv(headers, rows){ return headers.join(',')+'\n'+rows.map(r=>headers.map(h=>csvEscape(r[h])).join(',')).join('\n'); }
+function downloadCsv(filename, headers, rows){
+  const csv = rowsToCsv(headers, rows);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ===================== STATE =====================
+function safeGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+function safeSet(key,val){ try{ localStorage.setItem(key,val); }catch(e){} }
+
+let session=null, canWrite=false;
+let range = {start:startOfMonth(todayStr()), end:todayStr(), label:'This Month'};
+let typeFilter = 'all';
+let activeTab = 'overview';
+let dayDocs=[], conversionDocs=[];
+let rowsCache={};
+let convRowsCache={};
+let charts={};
+
+const TABS = [
+  {id:'overview', label:'Overview'},
+  {id:'campaigns', label:'Campaigns'},
+  {id:'agents', label:'Agents'},
+  {id:'insights', label:'Insights & VoC'},
+  {id:'flags', label:'Flags'},
+  {id:'conversion', label:'Conversion'},
+  {id:'bangalore', label:'Bangalore'},
+  {id:'mumbai', label:'Mumbai'},
+  {id:'ncr', label:'NCR'},
+];
+
+// ===================== AUTH =====================
+async function initAuth(){
+  const { data } = await sb.auth.getSession();
+  session = data.session;
+  canWrite = !!session;
+  sb.auth.onAuthStateChange((event, newSession)=>{
+    session = newSession; canWrite = !!session;
+    renderRoleBadge(); renderUploadControls(); refreshTab();
+  });
+}
+function openLoginModal(){
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ovLogin"><div class="modal" style="max-width:360px;">
+    <h3>Editor Login</h3>
+    <div class="field"><label>Email</label><input type="email" id="loginEmail"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPassword"></div>
+    <div id="loginError" style="color:var(--red);font-size:12.5px;display:none;margin-bottom:8px;"></div>
+    <div class="modal-actions"><button id="cancelLogin">Cancel</button><button class="primary" id="doLogin">Log In</button></div>
+  </div></div>`;
+  document.getElementById('cancelLogin').onclick=()=>root.innerHTML='';
+  document.getElementById('ovLogin').addEventListener('click',e=>{ if(e.target.id==='ovLogin') root.innerHTML=''; });
+  document.getElementById('doLogin').onclick = async ()=>{
+    const email=document.getElementById('loginEmail').value.trim();
+    const password=document.getElementById('loginPassword').value;
+    const btn=document.getElementById('doLogin'); btn.disabled=true; btn.textContent='Logging in…';
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if(error){
+      document.getElementById('loginError').style.display='block';
+      document.getElementById('loginError').textContent = error.message;
+      btn.disabled=false; btn.textContent='Log In';
+    } else {
+      root.innerHTML='';
+      toast('Logged in as editor');
+    }
+  };
+}
+async function logout(){ await sb.auth.signOut(); toast('Logged out'); }
+
+// ===================== INIT =====================
+async function init(){
+  renderTabNav();
+  renderFilterControls();
+  await initAuth();
+  renderRoleBadge();
+  renderUploadControls();
+  await refreshTab();
+}
+
+function renderRoleBadge(){
+  const wrap = document.getElementById('roleBadgeWrap');
+  wrap.innerHTML = canWrite
+    ? '<span class="badge admin">Editor</span>'
+    : '<span class="badge public">View only</span>';
+}
+
+function renderTabNav(){
+  const nav = document.getElementById('tabNav');
+  nav.innerHTML = TABS.map(t=>`<button class="tab-btn ${activeTab===t.id?'active':''}" data-tab="${t.id}">${t.label}</button>`).join('');
+  nav.querySelectorAll('[data-tab]').forEach(btn=>{
+    btn.onclick = ()=>{ activeTab = btn.getAttribute('data-tab'); renderTabNav(); renderFilterControls(); refreshTab(); };
+  });
+}
+
+function needsRangeAndType(tab){ return ['overview','campaigns','agents','insights','flags','bangalore','mumbai','ncr'].includes(tab); }
+
+function renderFilterControls(){
+  const el = document.getElementById('filterControls');
+  let html = '';
+  if(needsRangeAndType(activeTab) || activeTab==='conversion'){
+    const presets = ['Today','This Week','Last 7 Days','This Month'];
+    html += '<div class="controls-row">';
+    presets.forEach(label=> html += `<button data-preset="${label}" class="${range.label===label?'active':''}">${label}</button>`);
+    html += `<input type="date" id="customStart" value="${range.start}"><span style="color:var(--text-dim);font-size:12px;">to</span><input type="date" id="customEnd" value="${range.end}">`;
+    html += `<button id="applyCustom">Apply</button>`;
+    html += '</div>';
+  }
+  if(needsRangeAndType(activeTab)){
+    html += `<select id="typeFilterSel" style="margin-left:6px;">
+      <option value="all" ${typeFilter==='all'?'selected':''}>All Types</option>
+      <option value="acquisition" ${typeFilter==='acquisition'?'selected':''}>Acquisition</option>
+      <option value="retention" ${typeFilter==='retention'?'selected':''}>Retention</option>
+      <option value="experience" ${typeFilter==='experience'?'selected':''}>Experience</option>
+    </select>`;
+  }
+  el.innerHTML = html;
+
+  if(needsRangeAndType(activeTab) || activeTab==='conversion'){
+    const presetFns = {
+      'Today': ()=>setRange(todayStr(), todayStr(), 'Today'),
+      'This Week': ()=>setRange(startOfWeek(todayStr()), todayStr(), 'This Week'),
+      'Last 7 Days': ()=>setRange(addDays(todayStr(),-6), todayStr(), 'Last 7 Days'),
+      'This Month': ()=>setRange(startOfMonth(todayStr()), todayStr(), 'This Month'),
+    };
+    Object.entries(presetFns).forEach(([label,fn])=>{ const b=el.querySelector(`[data-preset="${label}"]`); if(b) b.onclick=fn; });
+    const ap = el.querySelector('#applyCustom');
+    if(ap) ap.onclick = ()=>{
+      const s=el.querySelector('#customStart').value, e=el.querySelector('#customEnd').value;
+      if(s&&e&&s<=e) setRange(s,e,'Custom'); else toast('Pick a valid start/end date');
+    };
+  }
+  const tf = el.querySelector('#typeFilterSel');
+  if(tf) tf.onchange = ()=>{ typeFilter = tf.value; refreshTab(); };
+}
+
+function setRange(start,end,label){ range={start,end,label}; renderFilterControls(); refreshTab(); }
+
+function renderUploadControls(){
+  const el = document.getElementById('uploadControls');
+  if(!canWrite){ el.innerHTML = `<button id="loginBtn">Editor Login</button>`; document.getElementById('loginBtn').onclick=openLoginModal; return; }
+  el.innerHTML = `<button class="primary" id="uploadCallBtn">＋ Upload Daily CSV</button><button id="uploadConvBtn">＋ Upload Conversion CSV</button><button id="logoutBtn">Log Out</button>`;
+  el.querySelector('#uploadCallBtn').onclick = openUploadModal;
+  el.querySelector('#uploadConvBtn').onclick = openConversionUploadModal;
+  el.querySelector('#logoutBtn').onclick = logout;
+}
+
+// ===================== DATA LOADING (Supabase) =====================
+async function fetchAllRows(table, date){
+  let all=[], from=0, pageSize=1000;
+  while(true){
+    const { data, error } = await sb.from(table).select('*').eq('date', date).range(from, from+pageSize-1);
+    if(error){ console.error(error); toast('Load failed: '+error.message); break; }
+    all = all.concat(data||[]);
+    if(!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+async function loadDaySummaries(){
+  const { data, error } = await sb.from('days').select('*').gte('date',range.start).lte('date',range.end).order('date',{ascending:true});
+  if(error){ console.error(error); toast('Load failed: '+error.message); return []; }
+  return (data||[]).map(r=>({
+    date:r.date, fileName:r.file_name, totalRows:r.total_rows, excludedRows:r.excluded_rows,
+    totalDials:r.total_dials, totalConnects:r.total_connects,
+    campaigns:r.campaigns||{}, agents:r.agents||{}, flagsCount:r.flags_count||{}
+  }));
+}
+async function loadConversionSummaries(){
+  const { data, error } = await sb.from('conversion').select('*').gte('date',range.start).lte('date',range.end).order('date',{ascending:true});
+  if(error){ console.error(error); return []; }
+  return (data||[]).map(r=>({
+    date:r.date, fileName:r.file_name, totalConversions:r.total_conversions,
+    byAgent:r.by_agent||{}, byCampaign:r.by_campaign||{}, byCity:r.by_city||{}, byType:r.by_type||{}
+  }));
+}
+async function loadRowsForDate(date){
+  if(rowsCache[date]) return rowsCache[date];
+  const raw = await fetchAllRows('day_rows', date);
+  const rows = raw.map(r=>({agent:r.agent, campaign:r.campaign, lob:r.lob, city:r.city, callId:r.call_id, phone:r.phone, disposition:r.disposition, talkSec:r.talk_sec, notes:r.notes, form:r.form||{}}));
+  rowsCache[date]=rows; return rows;
+}
+async function loadRowsForRange(){
+  const dates = dayDocs.map(d=>d.date);
+  const all = await Promise.all(dates.map(loadRowsForDate));
+  return all.flat();
+}
+async function loadConvRowsForDate(date){
+  if(convRowsCache[date]) return convRowsCache[date];
+  const raw = await fetchAllRows('conversion_rows', date);
+  const rows = raw.map(r=>({agent:r.agent, campaign:r.campaign, city:r.city, type:r.type, phone:r.phone}));
+  convRowsCache[date]=rows; return rows;
+}
+async function loadConvRowsForRange(){
+  const dates = conversionDocs.map(d=>d.date);
+  const all = await Promise.all(dates.map(loadConvRowsForDate));
+  return all.flat();
+}
+
+// ===================== TAB DISPATCH =====================
+async function refreshTab(){
+  renderLoading();
+  if(needsRangeAndType(activeTab)){
+    dayDocs = await loadDaySummaries();
+  }
+  if(activeTab==='conversion' || activeTab==='overview' || activeTab==='campaigns' || activeTab==='agents'){
+    conversionDocs = await loadConversionSummaries();
+  }
+  document.getElementById('rangeSummary').textContent =
+    (needsRangeAndType(activeTab)||activeTab==='conversion')
+      ? `Showing ${range.start} → ${range.end} · ${(activeTab==='conversion'?conversionDocs:dayDocs).length} day(s) with data`
+      : '';
+  switch(activeTab){
+    case 'overview': renderOverview(); break;
+    case 'campaigns': renderCampaigns(); break;
+    case 'agents': await renderAgents(); break;
+    case 'insights': await renderInsights(); break;
+    case 'flags': await renderFlags(); break;
+    case 'conversion': renderConversion(); break;
+    case 'bangalore': await renderCityTab('Bangalore'); break;
+    case 'mumbai': await renderCityTab('Mumbai'); break;
+    case 'ncr': await renderCityTab('NCR'); break;
+  }
+}
+function renderLoading(){ document.getElementById('app').innerHTML = `<div class="empty-state"><span class="spinner"></span>Loading…</div>`; }
+
+// ===================== AGGREGATION HELPERS =====================
+function lobInFilter(lob){ if(typeFilter==='all') return true; return (TYPE_GROUPS[typeFilter]||[]).includes(lob); }
+
+function aggregateOverview(cityFilter){
+  const campaigns={}, agents={};
+  dayDocs.forEach(day=>{
+    Object.entries(day.campaigns||{}).forEach(([name,v])=>{
+      if(!lobInFilter(v.lob)) return;
+      let dials=v.dials||0, connects=v.connects||0, uniqueCallIds=(v.uniqueCallIds!=null?v.uniqueCallIds:(v.uniquePhones||0));
+      if(cityFilter){
+        const cv = (v.byCity||{})[cityFilter];
+        if(!cv) return;
+        dials=cv.dials||0; connects=cv.connects||0; uniqueCallIds=0;
+      }
+      if(!campaigns[name]) campaigns[name]={dials:0,connects:0,uniqueCallIds:0,lob:v.lob,city:v.city};
+      campaigns[name].dials+=dials; campaigns[name].connects+=connects; campaigns[name].uniqueCallIds+=uniqueCallIds;
+    });
+    Object.entries(day.agents||{}).forEach(([name,v])=>{
+      if(!agents[name]) agents[name]={dials:0,connects:0};
+      let d=0,c=0;
+      if(cityFilter){
+        Object.entries(v.byCity||{}).forEach(([city,cv])=>{ if(city===cityFilter){ d+=cv.dials||0; c+=cv.connects||0; } });
+      } else if(typeFilter==='all'){
+        d=v.dials||0; c=v.connects||0;
+      } else {
+        Object.entries(v.byLob||{}).forEach(([lob,lv])=>{ if(lobInFilter(lob)){ d+=lv.dials||0; c+=lv.connects||0; } });
+      }
+      agents[name].dials+=d; agents[name].connects+=c;
+    });
+  });
+  Object.keys(agents).forEach(k=>{ if(agents[k].dials===0 && agents[k].connects===0) delete agents[k]; });
+  let totalDialsCalc=0, totalConnectsCalc=0;
+  Object.values(campaigns).forEach(c=>{ totalDialsCalc+=c.dials; totalConnectsCalc+=c.connects; });
+  return {totalDials:totalDialsCalc, totalConnects:totalConnectsCalc, campaigns, agents};
+}
+
+// ===================== OVERVIEW =====================
+function renderOverview(){
+  const app=document.getElementById('app');
+  if(dayDocs.length===0){ app.innerHTML=`<div class="empty-state">No data for this range.${canWrite?' Upload a daily CSV to get started.':''}</div>`; return; }
+  const agg = aggregateOverview(null);
+  const connPct = agg.totalDials? agg.totalConnects/agg.totalDials*100:0;
+  const campArr = Object.entries(agg.campaigns).map(([n,v])=>({name:n,...v,pct:v.dials?v.connects/v.dials*100:0})).sort((a,b)=>b.dials-a.dials);
+  const agentArr = Object.entries(agg.agents).map(([n,v])=>({name:n,...v,pct:v.dials?v.connects/v.dials*100:0})).sort((a,b)=>b.dials-a.dials);
+  const totalConversions = conversionDocs.reduce((s,d)=>s+(d.totalConversions||0),0);
+  const convPct = agg.totalConnects? totalConversions/agg.totalConnects*100:0;
+  let html = `<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Total Dials</div><div class="kpi-value">${agg.totalDials.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Total Connects</div><div class="kpi-value">${agg.totalConnects.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Connection Rate</div><div class="kpi-value ${pctClass(connPct)}">${fmtPct(connPct)}</div></div>
+    <div class="kpi"><div class="kpi-label">Conversions</div><div class="kpi-value pct-green">${totalConversions.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Conversion %</div><div class="kpi-value ${pctClass(convPct)}">${fmtPct(convPct)}</div><div class="kpi-sub">of connects</div></div>
+    <div class="kpi"><div class="kpi-label">Active Campaigns</div><div class="kpi-value">${campArr.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Active Agents</div><div class="kpi-value">${agentArr.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Days Covered</div><div class="kpi-value">${dayDocs.length}</div></div>
+  </div>`;
+  html += `<div class="section"><h2>Daily Trend</h2><div class="chart-wrap"><canvas id="trendCanvas"></canvas></div></div>`;
+  html += `<div class="section"><h2>Top Campaigns</h2><table><thead><tr><th>Campaign</th><th>Type</th><th>Dials</th><th>Connects</th><th>Conn %</th></tr></thead><tbody>`;
+  campArr.slice(0,10).forEach(c=>{ html+=`<tr><td>${escapeHtml(c.name)}</td><td><span class="type-pill ${LOB_CLASS[c.lob]||'type-other'}">${c.lob||'—'}</span></td><td>${c.dials.toLocaleString()}</td><td>${c.connects.toLocaleString()}</td><td class="${pctClass(c.pct)}">${fmtPct(c.pct)}</td></tr>`; });
+  html += `</tbody></table></div>`;
+  html += `<div class="section"><h2>Top Agents</h2><table><thead><tr><th>Agent</th><th>Dials</th><th>Connects</th><th>Conn %</th></tr></thead><tbody>`;
+  agentArr.slice(0,10).forEach(a=>{ html+=`<tr><td>${escapeHtml(a.name)}</td><td>${a.dials.toLocaleString()}</td><td>${a.connects.toLocaleString()}</td><td class="${pctClass(a.pct)}">${fmtPct(a.pct)}</td></tr>`; });
+  html += `</tbody></table></div>`;
+  app.innerHTML = html;
+  drawTrend('trendCanvas', dayDocs.map(d=>d.date), dayDocs.map(d=>d.totalDials||0), dayDocs.map(d=>d.totalConnects||0));
+}
+
+function drawTrend(canvasId, labels, dials, connects){
+  const ctx=document.getElementById(canvasId); if(!ctx) return;
+  if(charts[canvasId]) charts[canvasId].destroy();
+  const st=getComputedStyle(document.documentElement);
+  charts[canvasId] = new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'Dials',data:dials,borderColor:st.getPropertyValue('--accent').trim(),backgroundColor:'transparent',tension:0.25},
+    {label:'Connects',data:connects,borderColor:st.getPropertyValue('--green').trim(),backgroundColor:'transparent',tension:0.25},
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:st.getPropertyValue('--text').trim()}}},
+    scales:{x:{ticks:{color:st.getPropertyValue('--text-dim').trim()},grid:{color:st.getPropertyValue('--border').trim()}},
+            y:{ticks:{color:st.getPropertyValue('--text-dim').trim()},grid:{color:st.getPropertyValue('--border').trim()}}}}});
+}
+
+// ===================== CAMPAIGNS =====================
+let campaignSearch='';
+function renderCampaigns(){
+  const app=document.getElementById('app');
+  if(dayDocs.length===0){ app.innerHTML=`<div class="empty-state">No data for this range.</div>`; return; }
+  const agg = aggregateOverview(null);
+  const convByCampaign = {};
+  conversionDocs.forEach(day=>{
+    Object.entries(day.byCampaign||{}).forEach(([n,v])=>{ convByCampaign[n]=(convByCampaign[n]||0)+(v.count||0); });
+  });
+  let campArr = Object.entries(agg.campaigns).map(([n,v])=>({name:n,...v,pct:v.dials?v.connects/v.dials*100:0,conversions:convByCampaign[n]||0})).sort((a,b)=>b.dials-a.dials);
+  let html = `<div class="section"><h2>Campaigns <input type="text" id="campSearch" placeholder="Search campaigns…" value="${escapeHtml(campaignSearch)}" style="max-width:220px;"></h2>`;
+  html += `<table><thead><tr><th>Campaign</th><th>Type</th><th>Dials</th><th>Connects</th><th>Conn %</th><th>Conversions</th><th>Unique Call IDs</th></tr></thead><tbody>`;
+  campArr.filter(c=>c.name.toLowerCase().includes(campaignSearch.toLowerCase())).forEach(c=>{
+    html+=`<tr><td>${escapeHtml(c.name)}</td><td><span class="type-pill ${LOB_CLASS[c.lob]||'type-other'}">${c.lob||'—'}</span></td><td>${c.dials.toLocaleString()}</td><td>${c.connects.toLocaleString()}</td><td class="${pctClass(c.pct)}">${fmtPct(c.pct)}</td><td class="pct-green" style="font-weight:700;">${c.conversions.toLocaleString()}</td><td>${c.uniqueCallIds.toLocaleString()}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  app.innerHTML = html;
+  document.getElementById('campSearch').oninput = (e)=>{ campaignSearch=e.target.value; renderCampaigns(); };
+}
+
+// ===================== AGENTS =====================
+function aggregateAgentPerformance(){
+  const rows={};
+  dayDocs.forEach(day=>{
+    Object.entries(day.agents||{}).forEach(([agent,v])=>{
+      Object.entries(v.byLob||{}).forEach(([lob,lv])=>{
+        if(!lobInFilter(lob)) return;
+        const key=agent+'|||'+lob;
+        if(!rows[key]) rows[key]={agent,lob,dials:0,connects:0,uniqueCallIds:0,uniqueConnected:0,conversions:0};
+        rows[key].dials += lv.dials||0;
+        rows[key].connects += lv.connects||0;
+        rows[key].uniqueCallIds += lv.uniqueCallIds||0;
+        rows[key].uniqueConnected += lv.uniqueConnectedCallIds||0;
+      });
+    });
+  });
+  return rows;
+}
+function buildCampaignLobMap(){
+  const map={};
+  dayDocs.forEach(day=>{
+    Object.entries(day.campaigns||{}).forEach(([name,v])=>{ if(!(name in map)) map[name]=v.lob; });
+  });
+  return map;
+}
+async function renderAgents(){
+  const app=document.getElementById('app');
+  if(dayDocs.length===0){ app.innerHTML=`<div class="empty-state">No data for this range.</div>`; return; }
+  app.innerHTML = `<div class="empty-state"><span class="spinner"></span>Loading agent performance…</div>`;
+  const perf = aggregateAgentPerformance();
+  const campaignLobMap = buildCampaignLobMap();
+  const convRows = await loadConvRowsForRange();
+  convRows.forEach(r=>{
+    const lob = campaignLobMap[r.campaign] || 'Other';
+    if(!lobInFilter(lob)) return;
+    const key=r.agent+'|||'+lob;
+    if(!perf[key]) perf[key]={agent:r.agent,lob,dials:0,connects:0,uniqueCallIds:0,uniqueConnected:0,conversions:0};
+    perf[key].conversions++;
+  });
+
+  let rowsArr = Object.values(perf).map(r=>({
+    ...r,
+    connPct: r.uniqueCallIds? r.uniqueConnected/r.uniqueCallIds*100 : 0,
+    convPct: r.uniqueConnected? r.conversions/r.uniqueConnected*100 : 0,
+  })).filter(r=> r.dials>0 || r.conversions>0)
+    .sort((a,b)=> a.agent.localeCompare(b.agent) || (b.dials-a.dials));
+
+  if(rowsArr.length===0){ app.innerHTML=`<div class="empty-state">No agent activity for this range/type filter.</div>`; return; }
+
+  const totals = rowsArr.reduce((t,r)=>({
+    leads:t.leads+r.uniqueCallIds, dialed:t.dialed+r.dials, connected:t.connected+r.uniqueConnected, conv:t.conv+r.conversions
+  }), {leads:0,dialed:0,connected:0,conv:0});
+  const totalConnPct = totals.leads? totals.connected/totals.leads*100:0;
+  const totalConvPct = totals.connected? totals.conv/totals.connected*100:0;
+
+  let html = `<div class="section"><h2>Agent Performance</h2>
+    <div class="hint">Leads Received / Unique Connected are counted by distinct Call ID (a lead dialed more than once still counts once); Total Dialed counts every dial attempt.</div>
+    <table><thead><tr><th>Agent</th><th>Campaign Type</th><th>Leads Received</th><th>Total Dialed</th><th>Unique Connected</th><th>Conn %</th><th>Conv.</th><th>Conv %</th></tr></thead><tbody>`;
+  rowsArr.forEach(r=>{
+    html+=`<tr><td>${escapeHtml(r.agent)}</td><td><span class="type-pill ${LOB_CLASS[r.lob]||'type-other'}">${r.lob||'—'}</span></td><td>${r.uniqueCallIds.toLocaleString()}</td><td>${r.dials.toLocaleString()}</td><td>${r.uniqueConnected.toLocaleString()}</td><td class="${pctClass(r.connPct)}">${fmtPct(r.connPct)}</td><td class="pct-green" style="font-weight:700;">${r.conversions.toLocaleString()}</td><td class="${pctClass(r.convPct)}">${fmtPct(r.convPct)}</td></tr>`;
+  });
+  html += `<tr style="font-weight:800;background:var(--accent-soft);"><td>TOTAL</td><td></td><td>${totals.leads.toLocaleString()}</td><td>${totals.dialed.toLocaleString()}</td><td>${totals.connected.toLocaleString()}</td><td class="${pctClass(totalConnPct)}">${fmtPct(totalConnPct)}</td><td class="pct-green">${totals.conv.toLocaleString()}</td><td class="${pctClass(totalConvPct)}">${fmtPct(totalConvPct)}</td></tr>`;
+  html += `</tbody></table></div>`;
+  app.innerHTML = html;
+}
+
+// ===================== INSIGHTS & VoC =====================
+let insightsCampaignFilter='', insightsSearch='';
+async function renderInsights(){
+  const app=document.getElementById('app');
+  if(dayDocs.length===0){ app.innerHTML=`<div class="empty-state">No data for this range.</div>`; return; }
+  app.innerHTML = `<div class="empty-state"><span class="spinner"></span>Loading response detail…</div>`;
+  const rows = (await loadRowsForRange()).filter(r=>lobInFilter(r.lob));
+  const campaigns = [...new Set(rows.map(r=>r.campaign))].sort();
+  const filtered = rows.filter(r=> (!insightsCampaignFilter || r.campaign===insightsCampaignFilter) );
+
+  const qa = {};
+  filtered.forEach(r=>{
+    Object.entries(r.form||{}).forEach(([q,a])=>{
+      if(a===undefined||a===null||a==='') return;
+      qa[q] = qa[q]||{};
+      qa[q][a] = qa[q][a]||[];
+      qa[q][a].push(r);
+    });
+  });
+
+  let html = `<div class="filter-bar">
+    <select id="insCampaign"><option value="">All Campaigns</option>${campaigns.map(c=>`<option value="${escapeHtml(c)}" ${insightsCampaignFilter===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+    <input type="text" id="insSearch" placeholder="Search phone/agent/notes…" value="${escapeHtml(insightsSearch)}" style="min-width:220px;">
+  </div>`;
+
+  const qKeys = Object.keys(qa);
+  if(qKeys.length===0){
+    html += `<div class="empty-state">No form/questionnaire answers found for this selection.</div>`;
+  } else {
+    html += `<div class="insight-grid">`;
+    qKeys.forEach(q=>{
+      const answers = Object.entries(qa[q]).sort((a,b)=>b[1].length-a[1].length);
+      const total = answers.reduce((s,[,rws])=>s+rws.length,0);
+      html += `<div class="insight-card" id="card-${sanitizeId(q)}"><h3>${escapeHtml(q)}</h3><div class="insight-total">${total.toLocaleString()} response${total===1?'':'s'}</div>`;
+      answers.forEach(([ans,rws])=>{
+        const pct = total? (rws.length/total*100):0;
+        html += `<div class="insight-bar-row" data-q="${escapeHtml(q)}" data-ans="${escapeHtml(ans)}" title="${escapeHtml(ans)}">
+          <div class="insight-bar-top"><span class="insight-bar-label">${escapeHtml(ans)}</span><span class="insight-bar-count">${rws.length}</span></div>
+          <div class="insight-bar-track"><div class="insight-bar-fill" style="width:${pct}%;"></div></div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    html += `</div>`;
+    html += `<div class="section" id="insightDrillSection" style="display:none;"><h2 id="insightDrillTitle"></h2><div id="insightDrillBody"></div></div>`;
+  }
+  app.innerHTML = html;
+
+  document.getElementById('insCampaign').onchange = (e)=>{ insightsCampaignFilter=e.target.value; renderInsights(); };
+  document.getElementById('insSearch').oninput = (e)=>{ insightsSearch=e.target.value; };
+
+  app.querySelectorAll('.insight-bar-row').forEach(row=>{
+    row.onclick = ()=>{
+      app.querySelectorAll('.insight-card.active').forEach(c=>c.classList.remove('active'));
+      const q=row.getAttribute('data-q'), ans=row.getAttribute('data-ans');
+      const card = document.getElementById('card-'+sanitizeId(q));
+      if(card) card.classList.add('active');
+      let rws = qa[q][ans];
+      const search = insightsSearch.toLowerCase();
+      if(search) rws = rws.filter(r=> (r.phone||'').toLowerCase().includes(search) || (r.agent||'').toLowerCase().includes(search) || (r.notes||'').toLowerCase().includes(search));
+      const section = document.getElementById('insightDrillSection');
+      document.getElementById('insightDrillTitle').textContent = `${q} — "${ans}"`;
+      let dhtml = `<table><thead><tr><th>Phone</th><th>Agent</th><th>Campaign</th><th>Notes</th></tr></thead><tbody>`;
+      rws.slice(0,300).forEach(r=>{ dhtml+=`<tr><td>${escapeHtml(r.phone||'—')}</td><td>${escapeHtml(r.agent||'—')}</td><td>${escapeHtml(r.campaign||'—')}</td><td>${escapeHtml(r.notes||'—')}</td></tr>`; });
+      dhtml += `</tbody></table>`;
+      if(rws.length>300) dhtml += `<div class="hint">Showing first 300 of ${rws.length} matches.</div>`;
+      if(canWrite) dhtml += `<button id="exportInsight" style="margin-top:8px;">⬇ Export CSV (${rws.length})</button>`;
+      document.getElementById('insightDrillBody').innerHTML = dhtml;
+      section.style.display = '';
+      section.scrollIntoView({behavior:'smooth', block:'nearest'});
+      if(canWrite) document.getElementById('exportInsight').onclick = ()=> downloadCsv(`insight_${q}_${ans}.csv`.replace(/[^\w.-]/g,'_'), ['phone','agent','campaign','notes'], rws);
+    };
+  });
+}
+function sanitizeId(s){ return String(s).replace(/[^a-z0-9]/gi,'_'); }
+
+// ===================== FLAGS =====================
+async function renderFlags(){
+  const app=document.getElementById('app');
+  if(dayDocs.length===0){ app.innerHTML=`<div class="empty-state">No data for this range.</div>`; return; }
+  app.innerHTML = `<div class="empty-state"><span class="spinner"></span>Scanning calls for flags…</div>`;
+  const rows = (await loadRowsForRange()).filter(r=>lobInFilter(r.lob));
+  const flagged = [];
+  rows.forEach(r=>{
+    const reasons=[];
+    const notesLower = (r.notes||'').toLowerCase();
+    const dispLower = (r.disposition||'').toLowerCase();
+    if(isConnect(r.disposition) && r.talkSec>0 && r.talkSec<30) reasons.push('short_connect');
+    if(keywordHit([notesLower,dispLower], MISCONDUCT_KEYWORDS)) reasons.push('misconduct');
+    if(keywordHit([dispLower], CALLBACK_KEYWORDS)) reasons.push('callback');
+    if(isConnect(r.disposition) && (!r.form || Object.keys(r.form).length===0)) reasons.push('form_not_filled');
+    if(keywordHit([notesLower,dispLower], HOT_KEYWORDS)) reasons.push('hot_convert');
+    if(reasons.length) flagged.push({...r, reasons});
+  });
+
+  const counts = {short_connect:0,misconduct:0,callback:0,form_not_filled:0,hot_convert:0};
+  flagged.forEach(f=>f.reasons.forEach(r=>counts[r]++));
+
+  const chipMeta = {short_connect:['flag-short','Short Connect (<30s)'],misconduct:['flag-misconduct','Misconduct Keyword'],callback:['flag-callback','Callback Logged'],form_not_filled:['flag-form','Form Not Filled'],hot_convert:['flag-hot','Hot Convert']};
+
+  let html = `<div class="kpi-grid">`;
+  Object.entries(chipMeta).forEach(([key,arr])=>{
+    html += `<div class="kpi kpi-clickable" data-flagkey="${key}" title="Click to see these calls"><div class="kpi-label">${arr[1]}</div><div class="kpi-value">${counts[key]}</div></div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="filter-bar">` + Object.entries(chipMeta).map(([key,arr])=>`<label><input type="checkbox" class="flagCk" value="${key}" checked> <span class="flag-chip ${arr[0]}">${arr[1]}</span></label>`).join('') + `</div>`;
+
+  html += `<div class="section" id="flagsTableSection"><h2>Flagged Calls <span id="flagsTableTitle" style="font-weight:500;color:var(--text-dim);"></span>${canWrite? '<button id="exportFlags" style="font-size:12px;">⬇ Export CSV</button>' : ''}</h2><div id="flagsTableWrap"></div></div>`;
+  app.innerHTML = html;
+
+  function renderTable(){
+    const active = [...document.querySelectorAll('.flagCk:checked')].map(c=>c.value);
+    const show = flagged.filter(f=>f.reasons.some(r=>active.includes(r)));
+    document.getElementById('flagsTableTitle').textContent = active.length===Object.keys(chipMeta).length ? '' : `— ${show.length.toLocaleString()} matching call${show.length===1?'':'s'}`;
+    let t = `<table><thead><tr><th>Agent</th><th>Campaign</th><th>Phone</th><th>Disposition</th><th>Talk (s)</th><th>Notes</th><th>Flags</th></tr></thead><tbody>`;
+    show.slice(0,500).forEach(f=>{
+      t += `<tr><td>${escapeHtml(f.agent||'—')}</td><td>${escapeHtml(f.campaign||'—')}</td><td>${escapeHtml(f.phone||'—')}</td><td>${escapeHtml(f.disposition||'—')}</td><td>${f.talkSec||0}</td><td>${escapeHtml(f.notes||'—')}</td><td>${f.reasons.map(r=>`<span class="flag-chip ${chipMeta[r][0]}">${chipMeta[r][1]}</span>`).join(' ')}</td></tr>`;
+    });
+    t += `</tbody></table>`;
+    if(show.length===0) t = `<div class="empty-state">No calls match the selected flag(s).</div>`;
+    if(show.length>500) t += `<div class="hint">Showing first 500 of ${show.length} flagged calls.</div>`;
+    document.getElementById('flagsTableWrap').innerHTML = t;
+    const expBtn = document.getElementById('exportFlags');
+    if(expBtn) expBtn.onclick = ()=> downloadCsv('flags_export.csv', ['agent','campaign','phone','disposition','talkSec','notes','reasons'], show.map(f=>({...f, reasons:f.reasons.join('|')})));
+  }
+  document.querySelectorAll('.flagCk').forEach(ck=>ck.onchange=renderTable);
+  document.querySelectorAll('.kpi-clickable').forEach(kpi=>{
+    kpi.onclick = ()=>{
+      const key = kpi.getAttribute('data-flagkey');
+      document.querySelectorAll('.flagCk').forEach(ck=>{ ck.checked = (ck.value===key); });
+      document.querySelectorAll('.kpi-clickable').forEach(k=>k.classList.remove('active'));
+      kpi.classList.add('active');
+      renderTable();
+      document.getElementById('flagsTableSection').scrollIntoView({behavior:'smooth', block:'start'});
+    };
+  });
+  renderTable();
+}
+
+// ===================== CITY TABS =====================
+async function renderCityTab(city){
+  const app=document.getElementById('app');
+  const agg = aggregateOverview(city);
+  const campArr = Object.entries(agg.campaigns).map(([n,v])=>({name:n,...v,pct:v.dials?v.connects/v.dials*100:0})).sort((a,b)=>b.dials-a.dials);
+  if(campArr.length===0){
+    app.innerHTML = `<div class="empty-state">No ${city} data yet for this range.${canWrite?` Upload a CSV and set City = ${city} to activate this tab.`:''}</div>`;
+    return;
+  }
+  const connPct = agg.totalDials? agg.totalConnects/agg.totalDials*100:0;
+  let html = `<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">${city} Dials</div><div class="kpi-value">${agg.totalDials.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">${city} Connects</div><div class="kpi-value">${agg.totalConnects.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Connection Rate</div><div class="kpi-value ${pctClass(connPct)}">${fmtPct(connPct)}</div></div>
+    <div class="kpi"><div class="kpi-label">Campaigns</div><div class="kpi-value">${campArr.length}</div></div>
+  </div>`;
+  html += `<div class="section"><h2>${city} Campaigns</h2><table><thead><tr><th>Campaign</th><th>Type</th><th>Dials</th><th>Connects</th><th>Conn %</th></tr></thead><tbody>`;
+  campArr.forEach(c=>{ html+=`<tr><td>${escapeHtml(c.name)}</td><td><span class="type-pill ${LOB_CLASS[c.lob]||'type-other'}">${c.lob||'—'}</span></td><td>${c.dials.toLocaleString()}</td><td>${c.connects.toLocaleString()}</td><td class="${pctClass(c.pct)}">${fmtPct(c.pct)}</td></tr>`; });
+  html += `</tbody></table></div>`;
+  html += `<div class="section"><h2>Disposition Drill-down</h2><div id="cityDrill"><button id="loadCityDrill">Load row-level detail for this range</button></div></div>`;
+  app.innerHTML = html;
+  document.getElementById('loadCityDrill').onclick = async ()=>{
+    document.getElementById('cityDrill').innerHTML = '<span class="spinner"></span>Loading…';
+    const rows = (await loadRowsForRange()).filter(r=>r.city===city);
+    const byDisp = {};
+    rows.forEach(r=>{ const d=r.disposition||'Unknown'; byDisp[d]=byDisp[d]||[]; byDisp[d].push(r); });
+    let dh = `<table><thead><tr><th>Disposition</th><th>Count</th>${canWrite?'<th></th>':''}</tr></thead><tbody>`;
+    Object.entries(byDisp).sort((a,b)=>b[1].length-a[1].length).forEach(([d,rws])=>{
+      dh += `<tr><td>${escapeHtml(d)}</td><td>${rws.length}</td>${canWrite?`<td><button data-disp="${escapeHtml(d)}" style="font-size:11px;">Export</button></td>`:''}</tr>`;
+    });
+    dh += `</tbody></table>`;
+    document.getElementById('cityDrill').innerHTML = dh;
+    if(canWrite){
+      document.querySelectorAll('[data-disp]').forEach(btn=>{
+        btn.onclick = ()=>{ const d=btn.getAttribute('data-disp'); const rws=byDisp[d]; downloadCsv(`${city}_${d}.csv`.replace(/[^\w.-]/g,'_'), ['agent','campaign','phone','disposition','talkSec','notes'], rws); };
+      });
+    }
+  };
+}
+
+// ===================== CONVERSION =====================
+function renderConversion(){
+  const app=document.getElementById('app');
+  if(conversionDocs.length===0){ app.innerHTML=`<div class="empty-state">No conversion data for this range.${canWrite?' Use "Upload Conversion CSV" above.':''}</div>`; return; }
+  const byAgent={}, byCampaign={}, byCity={}, byType={new:0,renewal:0,other:0};
+  let total=0;
+  conversionDocs.forEach(day=>{
+    total += day.totalConversions||0;
+    Object.entries(day.byAgent||{}).forEach(([n,v])=>{ byAgent[n]=(byAgent[n]||0)+v.count; });
+    Object.entries(day.byCampaign||{}).forEach(([n,v])=>{ byCampaign[n]=(byCampaign[n]||0)+v.count; });
+    Object.entries(day.byCity||{}).forEach(([n,v])=>{ byCity[n]=(byCity[n]||0)+v.count; });
+    Object.entries(day.byType||{}).forEach(([k,v])=>{ byType[k]=(byType[k]||0)+v; });
+  });
+  const agentArr = Object.entries(byAgent).sort((a,b)=>b[1]-a[1]);
+  const campArr = Object.entries(byCampaign).sort((a,b)=>b[1]-a[1]);
+  const cityArr = Object.entries(byCity).sort((a,b)=>b[1]-a[1]);
+
+  let html = `<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Total Conversions</div><div class="kpi-value">${total.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">New</div><div class="kpi-value">${(byType.new||0).toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Renewal</div><div class="kpi-value">${(byType.renewal||0).toLocaleString()}</div></div>
+    <div class="kpi"><div class="kpi-label">Days Covered</div><div class="kpi-value">${conversionDocs.length}</div></div>
+  </div>`;
+  html += `<div class="section"><h2>Daily Trend</h2><div class="chart-wrap"><canvas id="convTrend"></canvas></div></div>`;
+  html += `<div class="section"><h2>By Agent</h2><table><thead><tr><th>Agent</th><th>Conversions</th></tr></thead><tbody>`;
+  agentArr.forEach(([n,c])=>{ html+=`<tr><td>${escapeHtml(n)}</td><td>${c}</td></tr>`; });
+  html += `</tbody></table></div>`;
+  html += `<div class="section"><h2>By Campaign</h2><table><thead><tr><th>Campaign</th><th>Conversions</th></tr></thead><tbody>`;
+  campArr.forEach(([n,c])=>{ html+=`<tr><td>${escapeHtml(n)}</td><td>${c}</td></tr>`; });
+  html += `</tbody></table></div>`;
+  if(cityArr.length){
+    html += `<div class="section"><h2>By City</h2><table><thead><tr><th>City</th><th>Conversions</th></tr></thead><tbody>`;
+    cityArr.forEach(([n,c])=>{ html+=`<tr><td>${escapeHtml(n)}</td><td>${c}</td></tr>`; });
+    html += `</tbody></table></div>`;
+  }
+  app.innerHTML = html;
+  drawTrend('convTrend', conversionDocs.map(d=>d.date), conversionDocs.map(d=>d.totalConversions||0), conversionDocs.map(()=>0));
+}
+
+// ===================== UPLOAD: CALLING DATA =====================
+let pendingParsed=null;
+function openUploadModal(){
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ov1"><div class="modal">
+    <h3>Upload Daily Calling CSV</h3>
+    <div class="hint">Pick the date, default Type/City (used unless the file has its own LOB/City columns), then choose the CSV.</div>
+    <div class="field-row">
+      <div class="field"><label>Date this file covers</label><input type="date" id="uploadDate" value="${todayStr()}"></div>
+      <div class="field"><label>Default Type / LOB</label><select id="uploadLob">${LOBS.map(l=>`<option value="${l}">${l}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Default City (optional — leave blank if not a city-ops file)</label>
+      <select id="uploadCity"><option value="">— none —</option>${CITIES.map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div>
+    <div class="field"><label>CSV file</label><div class="file-drop" id="dropZone">Click to choose a CSV file</div><input type="file" id="fileInput" accept=".csv" style="display:none;"></div>
+    <div id="fileStatus" style="font-size:12.5px;color:var(--text-dim);"></div>
+    <div class="modal-actions"><button id="cancelUpload">Cancel</button></div>
+  </div></div>`;
+  document.getElementById('dropZone').onclick=()=>document.getElementById('fileInput').click();
+  document.getElementById('fileInput').onchange=handleFileSelect;
+  document.getElementById('cancelUpload').onclick=()=>root.innerHTML='';
+  document.getElementById('ov1').addEventListener('click',e=>{ if(e.target.id==='ov1') root.innerHTML=''; });
+}
+function handleFileSelect(e){
+  const file=e.target.files[0]; if(!file) return;
+  document.getElementById('fileStatus').textContent='Parsing…';
+  Papa.parse(file,{header:true, skipEmptyLines:true, complete:(results)=>{
+    pendingParsed={fileName:file.name, headers:results.meta.fields||[], rows:results.data};
+    document.getElementById('fileStatus').textContent=`Parsed ${results.data.length.toLocaleString()} rows, ${pendingParsed.headers.length} columns.`;
+    openMappingModal();
+  }, error:(err)=>{ document.getElementById('fileStatus').textContent='Failed to parse CSV: '+err.message; }});
+}
+function guessColumn(headers,keywords){ const lower=headers.map(h=>h.toLowerCase()); for(const kw of keywords){ const idx=lower.findIndex(h=>h.includes(kw)); if(idx>=0) return headers[idx]; } return ''; }
+
+function openMappingModal(){
+  const headers=pendingParsed.headers;
+  const savedMap = JSON.parse(safeGet('yulu_col_map_'+headers.join('|').slice(0,100))||'null');
+  const guess = savedMap || {
+    agent:guessColumn(headers,['agent']), campaign:guessColumn(headers,['campaign']),
+    callid:guessColumn(headers,['call_id','call id','callid']),
+    phone:guessColumn(headers,['phone','mobile','number']), disposition:guessColumn(headers,['disposition','status']),
+    talktime:guessColumn(headers,['talk','duration']), notes:guessColumn(headers,['note','remark','comment']),
+    lobcol:guessColumn(headers,['lob','type']), citycol:guessColumn(headers,['city']),
+    formcols: []
+  };
+  const opts=(sel)=>`<option value="">— none —</option>`+headers.map(h=>`<option value="${escapeHtml(h)}" ${h===sel?'selected':''}>${escapeHtml(h)}</option>`).join('');
+  const mappedSoFar = [guess.agent,guess.campaign,guess.callid,guess.phone,guess.disposition,guess.talktime,guess.notes,guess.lobcol,guess.citycol].filter(Boolean);
+  const formCandidates = headers.filter(h=>!mappedSoFar.includes(h));
+
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ov2"><div class="modal">
+    <h3>Map Columns — ${escapeHtml(pendingParsed.fileName)}</h3>
+    <div class="hint">Confirm the required fields. Optional LOB/City columns override the defaults you picked, per row (use this for combined multi-LOB files). Check any columns below that are questionnaire/form answers. Call ID identifies each call/lead record — use it instead of phone for anything that needs a reliable identifier, since phone numbers can be missing, shared, or duplicated in some campaign exports.</div>
+    <div class="field-row">
+      <div class="field"><label>Agent column</label><select id="mapAgent">${opts(guess.agent)}</select></div>
+      <div class="field"><label>Campaign column *</label><select id="mapCampaign">${opts(guess.campaign)}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Call ID column</label><select id="mapCallId">${opts(guess.callid)}</select></div>
+      <div class="field"><label>Disposition column *</label><select id="mapDisposition">${opts(guess.disposition)}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Phone column</label><select id="mapPhone">${opts(guess.phone)}</select></div>
+      <div class="field"><label>Talk time column</label><select id="mapTalktime">${opts(guess.talktime)}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Notes column</label><select id="mapNotes">${opts(guess.notes)}</select></div>
+      <div class="field"><label>LOB/Type column (optional, per-row override)</label><select id="mapLob">${opts(guess.lobcol)}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>City column (optional, per-row override)</label><select id="mapCity">${opts(guess.citycol)}</select></div>
+      <div class="field"></div>
+    </div>
+    <div class="field"><label>Questionnaire / form columns (checked = treated as an answer)</label>
+      <div class="checklist">${formCandidates.map(h=>`<label><input type="checkbox" class="formCk" value="${escapeHtml(h)}" ${(guess.formcols||[]).includes(h)?'checked':''}> ${escapeHtml(h)}</label>`).join('')}</div>
+    </div>
+    <div class="modal-actions"><button id="backUpload">Back</button><button class="primary" id="confirmMap">Preview & Save</button></div>
+  </div></div>`;
+  document.getElementById('backUpload').onclick=openUploadModal;
+  document.getElementById('confirmMap').onclick=confirmMapping;
+  document.getElementById('ov2').addEventListener('click',e=>{ if(e.target.id==='ov2') document.getElementById('modalRoot').innerHTML=''; });
+}
+
+function confirmMapping(){
+  const map = {
+    agent:document.getElementById('mapAgent').value, campaign:document.getElementById('mapCampaign').value,
+    callid:document.getElementById('mapCallId').value,
+    phone:document.getElementById('mapPhone').value, disposition:document.getElementById('mapDisposition').value,
+    talktime:document.getElementById('mapTalktime').value, notes:document.getElementById('mapNotes').value,
+    lobcol:document.getElementById('mapLob').value, citycol:document.getElementById('mapCity').value,
+    formcols: [...document.querySelectorAll('.formCk:checked')].map(c=>c.value)
+  };
+  if(!map.campaign || !map.disposition){ toast('Campaign and Disposition columns are required'); return; }
+  safeSet('yulu_col_map_'+pendingParsed.headers.join('|').slice(0,100), JSON.stringify(map));
+
+  const defaultLob = document.getElementById('uploadLob').value;
+  const defaultCity = document.getElementById('uploadCity').value;
+  const date = document.getElementById('uploadDate').value || todayStr();
+
+  const campaigns={}, agents={};
+  const callIdSets={};
+  const agentLobCallIdSets={}, agentLobConnectedCallIdSets={};
+  let totalDials=0, totalConnects=0;
+  const compactRows=[];
+  const flagCounts={short_connect:0,misconduct:0,callback:0,form_not_filled:0,hot_convert:0};
+
+  pendingParsed.rows.forEach(row=>{
+    const campaign=(row[map.campaign]||'Unknown').trim();
+    if(isExcludedCampaign(campaign)) return;
+    const agent = map.agent ? normalizeAgent(row[map.agent]) : 'Unknown';
+    const disp = row[map.disposition]||'';
+    const callId = map.callid ? String(row[map.callid]||'').trim() : '';
+    const phone = map.phone ? String(row[map.phone]||'').trim() : '';
+    const talkSec = map.talktime ? parseTalkTime(row[map.talktime]) : 0;
+    const notes = map.notes ? String(row[map.notes]||'').trim() : '';
+    const lob = map.lobcol ? (row[map.lobcol]||defaultLob||'Other').trim() : (defaultLob||'Other');
+    const city = map.citycol ? (row[map.citycol]||defaultCity||'').trim() : (defaultCity||'');
+    const form = {};
+    map.formcols.forEach(fc=>{ const v=row[fc]; if(v!==undefined && v!==null && String(v).trim()!=='') form[fc]=String(v).trim(); });
+    const connected = isConnect(disp);
+
+    totalDials++; if(connected) totalConnects++;
+    if(!campaigns[campaign]) campaigns[campaign]={dials:0,connects:0,uniqueCallIds:0,lob,city,byCity:{}};
+    campaigns[campaign].dials++; if(connected) campaigns[campaign].connects++;
+    if(city){ campaigns[campaign].byCity[city]=campaigns[campaign].byCity[city]||{dials:0,connects:0}; campaigns[campaign].byCity[city].dials++; if(connected) campaigns[campaign].byCity[city].connects++; }
+    if(callId){ callIdSets[campaign]=callIdSets[campaign]||new Set(); callIdSets[campaign].add(callId); }
+
+    if(!agents[agent]) agents[agent]={dials:0,connects:0,byLob:{},byCity:{}};
+    agents[agent].dials++; if(connected) agents[agent].connects++;
+    agents[agent].byLob[lob]=agents[agent].byLob[lob]||{dials:0,connects:0};
+    agents[agent].byLob[lob].dials++; if(connected) agents[agent].byLob[lob].connects++;
+    if(city){ agents[agent].byCity[city]=agents[agent].byCity[city]||{dials:0,connects:0}; agents[agent].byCity[city].dials++; if(connected) agents[agent].byCity[city].connects++; }
+    if(callId){
+      const alKey=agent+'|||'+lob;
+      agentLobCallIdSets[alKey]=agentLobCallIdSets[alKey]||new Set(); agentLobCallIdSets[alKey].add(callId);
+      if(connected){ agentLobConnectedCallIdSets[alKey]=agentLobConnectedCallIdSets[alKey]||new Set(); agentLobConnectedCallIdSets[alKey].add(callId); }
+    }
+
+    const notesLower=notes.toLowerCase(), dispLower=String(disp).toLowerCase();
+    if(connected && talkSec>0 && talkSec<30) flagCounts.short_connect++;
+    if(keywordHit([notesLower,dispLower], MISCONDUCT_KEYWORDS)) flagCounts.misconduct++;
+    if(keywordHit([dispLower], CALLBACK_KEYWORDS)) flagCounts.callback++;
+    if(connected && Object.keys(form).length===0) flagCounts.form_not_filled++;
+    if(keywordHit([notesLower,dispLower], HOT_KEYWORDS)) flagCounts.hot_convert++;
+
+    compactRows.push({agent,campaign,lob,city,callId,phone,disposition:disp,talkSec,notes,form});
+  });
+  Object.keys(campaigns).forEach(c=>{ campaigns[c].uniqueCallIds = callIdSets[c]?callIdSets[c].size:0; });
+  Object.keys(agents).forEach(agent=>{
+    Object.keys(agents[agent].byLob).forEach(lob=>{
+      const alKey=agent+'|||'+lob;
+      agents[agent].byLob[lob].uniqueCallIds = agentLobCallIdSets[alKey]?agentLobCallIdSets[alKey].size:0;
+      agents[agent].byLob[lob].uniqueConnectedCallIds = agentLobConnectedCallIdSets[alKey]?agentLobConnectedCallIdSets[alKey].size:0;
+    });
+  });
+
+  const summary = {date, fileName:pendingParsed.fileName, totalRows:pendingParsed.rows.length, excludedRows:pendingParsed.rows.length-compactRows.length, totalDials, totalConnects, campaigns, agents, flagsCount:flagCounts};
+  showPreview(summary, compactRows);
+}
+
+function showPreview(summary, compactRows){
+  const connPct = summary.totalDials? summary.totalConnects/summary.totalDials*100:0;
+  const topCampaigns = Object.entries(summary.campaigns).sort((a,b)=>b[1].dials-a[1].dials).slice(0,5);
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ov3"><div class="modal">
+    <h3>Confirm Upload — ${summary.date}</h3>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+      <div class="kpi"><div class="kpi-label">Dials</div><div class="kpi-value">${summary.totalDials.toLocaleString()}</div></div>
+      <div class="kpi"><div class="kpi-label">Connects</div><div class="kpi-value">${summary.totalConnects.toLocaleString()}</div></div>
+      <div class="kpi"><div class="kpi-label">Conn %</div><div class="kpi-value ${pctClass(connPct)}">${fmtPct(connPct)}</div></div>
+    </div>
+    <div class="hint">Top campaigns:</div>
+    <table style="margin-bottom:10px;"><thead><tr><th>Campaign</th><th>Dials</th></tr></thead><tbody>${topCampaigns.map(([n,v])=>`<tr><td>${escapeHtml(n)}</td><td>${v.dials}</td></tr>`).join('')}</tbody></table>
+    <div class="hint">Flags detected: ${Object.entries(summary.flagsCount).map(([k,v])=>`${k.replace('_',' ')}: ${v}`).join(' · ')}</div>
+    <div id="overwriteWarn" style="display:none;color:var(--red);font-size:12.5px;margin:10px 0;font-weight:600;"></div>
+    <div class="modal-actions"><button id="cancelSave">Cancel</button><button class="primary" id="saveDay">Save to Dashboard</button></div>
+  </div></div>`;
+  document.getElementById('cancelSave').onclick=()=>root.innerHTML='';
+  document.getElementById('ov3').addEventListener('click',e=>{ if(e.target.id==='ov3') root.innerHTML=''; });
+
+  checkExisting('days', summary.date).then(exists=>{ if(exists){ const w=document.getElementById('overwriteWarn'); w.style.display='block'; w.textContent=`Data for ${summary.date} already exists and will be overwritten.`; } });
+
+  document.getElementById('saveDay').onclick = async ()=>{
+    const btn=document.getElementById('saveDay'); btn.disabled=true; btn.textContent='Saving…';
+    try{
+      const uid = session ? session.user.id : null;
+      const { error: upErr } = await sb.from('days').upsert({
+        date: summary.date, file_name: summary.fileName, total_rows: summary.totalRows, excluded_rows: summary.excludedRows,
+        total_dials: summary.totalDials, total_connects: summary.totalConnects,
+        campaigns: summary.campaigns, agents: summary.agents, flags_count: summary.flagsCount,
+        uploaded_at: new Date().toISOString(), uploaded_by: uid
+      }, {onConflict:'date'});
+      if(upErr) throw upErr;
+      await replaceRows('day_rows', summary.date, compactRows.map(r=>({
+        date: summary.date, agent:r.agent, campaign:r.campaign, lob:r.lob, city:r.city||null,
+        call_id:r.callId||null, phone:r.phone||null, disposition:r.disposition||null, talk_sec:r.talkSec||0, notes:r.notes||null, form:r.form||{}
+      })));
+      delete rowsCache[summary.date];
+      toast('Saved data for '+summary.date);
+      root.innerHTML='';
+      await refreshTab();
+    }catch(e){ toast('Save failed: '+(e.message||e.code||e)); btn.disabled=false; btn.textContent='Save to Dashboard'; }
+  };
+}
+
+async function checkExisting(table, date){
+  try{ const { data } = await sb.from(table).select('date').eq('date', date).maybeSingle(); return !!data; }catch(e){ return false; }
+}
+
+async function replaceRows(table, date, rows){
+  const { error: delErr } = await sb.from(table).delete().eq('date', date);
+  if(delErr) throw delErr;
+  const chunkSize = 500;
+  for(let i=0;i<rows.length;i+=chunkSize){
+    const slice = rows.slice(i, i+chunkSize);
+    const { error } = await sb.from(table).insert(slice);
+    if(error) throw error;
+  }
+}
+
+// ===================== UPLOAD: CONVERSION DATA =====================
+let pendingConvParsed=null;
+function openConversionUploadModal(){
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ovc1"><div class="modal">
+    <h3>Upload Conversion CSV</h3>
+    <div class="hint">Only rows with conversion_flag = 1 should be counted — you'll confirm the filter column in the next step.</div>
+    <div class="field"><label>Date this file covers</label><input type="date" id="convDate" value="${todayStr()}"></div>
+    <div class="field"><label>CSV file</label><div class="file-drop" id="convDropZone">Click to choose a CSV file</div><input type="file" id="convFileInput" accept=".csv" style="display:none;"></div>
+    <div id="convFileStatus" style="font-size:12.5px;color:var(--text-dim);"></div>
+    <div class="modal-actions"><button id="cancelConvUpload">Cancel</button></div>
+  </div></div>`;
+  document.getElementById('convDropZone').onclick=()=>document.getElementById('convFileInput').click();
+  document.getElementById('convFileInput').onchange=handleConvFileSelect;
+  document.getElementById('cancelConvUpload').onclick=()=>root.innerHTML='';
+  document.getElementById('ovc1').addEventListener('click',e=>{ if(e.target.id==='ovc1') root.innerHTML=''; });
+}
+function handleConvFileSelect(e){
+  const file=e.target.files[0]; if(!file) return;
+  document.getElementById('convFileStatus').textContent='Parsing…';
+  Papa.parse(file,{header:true, skipEmptyLines:true, complete:(results)=>{
+    pendingConvParsed={fileName:file.name, headers:results.meta.fields||[], rows:results.data};
+    document.getElementById('convFileStatus').textContent=`Parsed ${results.data.length.toLocaleString()} rows.`;
+    openConvMappingModal();
+  }, error:(err)=>{ document.getElementById('convFileStatus').textContent='Failed: '+err.message; }});
+}
+function openConvMappingModal(){
+  const headers=pendingConvParsed.headers;
+  const guess = {
+    agent:guessColumn(headers,['agent']), campaign:guessColumn(headers,['campaign']),
+    city:guessColumn(headers,['city']), type:guessColumn(headers,['conversion_type','type']),
+    flag:guessColumn(headers,['conversion_flag','flag']), phone:guessColumn(headers,['phone','mobile','number']),
+  };
+  const opts=(sel)=>`<option value="">— none —</option>`+headers.map(h=>`<option value="${escapeHtml(h)}" ${h===sel?'selected':''}>${escapeHtml(h)}</option>`).join('');
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ovc2"><div class="modal">
+    <h3>Map Columns — ${escapeHtml(pendingConvParsed.fileName)}</h3>
+    <div class="field-row">
+      <div class="field"><label>Agent column *</label><select id="cmAgent">${opts(guess.agent)}</select></div>
+      <div class="field"><label>Campaign column *</label><select id="cmCampaign">${opts(guess.campaign)}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>City column</label><select id="cmCity">${opts(guess.city)}</select></div>
+      <div class="field"><label>Conversion type column (new/renewal)</label><select id="cmType">${opts(guess.type)}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>conversion_flag column *</label><select id="cmFlag">${opts(guess.flag)}</select></div>
+      <div class="field"><label>Phone column</label><select id="cmPhone">${opts(guess.phone)}</select></div>
+    </div>
+    <div class="hint">Only rows where the flag column equals 1 (or "1"/"true") are counted as conversions — matches the confirmed rule (conversion_flag=1 only, not paid_flag).</div>
+    <div class="modal-actions"><button id="backConv">Back</button><button class="primary" id="confirmConvMap">Preview & Save</button></div>
+  </div></div>`;
+  document.getElementById('backConv').onclick=openConversionUploadModal;
+  document.getElementById('confirmConvMap').onclick=confirmConvMapping;
+  document.getElementById('ovc2').addEventListener('click',e=>{ if(e.target.id==='ovc2') document.getElementById('modalRoot').innerHTML=''; });
+}
+function confirmConvMapping(){
+  const map = {
+    agent:document.getElementById('cmAgent').value, campaign:document.getElementById('cmCampaign').value,
+    city:document.getElementById('cmCity').value, type:document.getElementById('cmType').value,
+    flag:document.getElementById('cmFlag').value, phone:document.getElementById('cmPhone').value,
+  };
+  if(!map.agent || !map.campaign || !map.flag){ toast('Agent, Campaign and conversion_flag columns are required'); return; }
+  const date = document.getElementById('convDate').value || todayStr();
+  const byAgent={}, byCampaign={}, byCity={}, byType={new:0,renewal:0,other:0};
+  const rows=[];
+  let total=0;
+  pendingConvParsed.rows.forEach(row=>{
+    const flagVal = String(row[map.flag]||'').trim().toLowerCase();
+    if(!(flagVal==='1'||flagVal==='true'||flagVal==='yes')) return;
+    const campaign = (row[map.campaign]||'Unknown').trim();
+    if(isExcludedCampaign(campaign)) return;
+    const agent = normalizeAgent(row[map.agent]);
+    const city = map.city ? (row[map.city]||'').trim() : '';
+    let type = map.type ? String(row[map.type]||'').trim().toLowerCase() : '';
+    if(type.includes('new')) type='new'; else if(type.includes('renew')) type='renewal'; else type='other';
+    const phone = map.phone ? String(row[map.phone]||'').trim() : '';
+    total++;
+    byAgent[agent]=byAgent[agent]||{count:0}; byAgent[agent].count++;
+    byCampaign[campaign]=byCampaign[campaign]||{count:0}; byCampaign[campaign].count++;
+    if(city){ byCity[city]=byCity[city]||{count:0}; byCity[city].count++; }
+    byType[type] = (byType[type]||0)+1;
+    rows.push({agent,campaign,city,type,phone});
+  });
+  const summary = {date, fileName:pendingConvParsed.fileName, totalConversions:total, byAgent, byCampaign, byCity, byType};
+  showConvPreview(summary, rows);
+}
+function showConvPreview(summary, rows){
+  const root=document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay" id="ovc3"><div class="modal">
+    <h3>Confirm Conversion Upload — ${summary.date}</h3>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+      <div class="kpi"><div class="kpi-label">Conversions</div><div class="kpi-value">${summary.totalConversions}</div></div>
+      <div class="kpi"><div class="kpi-label">New</div><div class="kpi-value">${summary.byType.new||0}</div></div>
+      <div class="kpi"><div class="kpi-label">Renewal</div><div class="kpi-value">${summary.byType.renewal||0}</div></div>
+    </div>
+    <div id="convOverwriteWarn" style="display:none;color:var(--red);font-size:12.5px;margin-bottom:10px;font-weight:600;"></div>
+    <div class="modal-actions"><button id="cancelConvSave">Cancel</button><button class="primary" id="saveConvDay">Save to Dashboard</button></div>
+  </div></div>`;
+  document.getElementById('cancelConvSave').onclick=()=>root.innerHTML='';
+  document.getElementById('ovc3').addEventListener('click',e=>{ if(e.target.id==='ovc3') root.innerHTML=''; });
+  checkExisting('conversion', summary.date).then(exists=>{ if(exists){ const w=document.getElementById('convOverwriteWarn'); w.style.display='block'; w.textContent=`Conversion data for ${summary.date} already exists and will be overwritten.`; } });
+  document.getElementById('saveConvDay').onclick = async ()=>{
+    const btn=document.getElementById('saveConvDay'); btn.disabled=true; btn.textContent='Saving…';
+    try{
+      const uid = session ? session.user.id : null;
+      const { error: upErr } = await sb.from('conversion').upsert({
+        date: summary.date, file_name: summary.fileName, total_conversions: summary.totalConversions,
+        by_agent: summary.byAgent, by_campaign: summary.byCampaign, by_city: summary.byCity, by_type: summary.byType,
+        uploaded_at: new Date().toISOString(), uploaded_by: uid
+      }, {onConflict:'date'});
+      if(upErr) throw upErr;
+      await replaceRows('conversion_rows', summary.date, rows.map(r=>({date:summary.date, agent:r.agent, campaign:r.campaign, city:r.city||null, type:r.type||null, phone:r.phone||null})));
+      delete convRowsCache[summary.date];
+      toast('Saved conversion data for '+summary.date);
+      root.innerHTML='';
+      await refreshTab();
+    }catch(e){ toast('Save failed: '+(e.message||e.code||e)); btn.disabled=false; btn.textContent='Save to Dashboard'; }
+  };
+}
+
+init();
+})();
+</script>
+</body>
+</html>
