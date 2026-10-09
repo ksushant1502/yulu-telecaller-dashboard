@@ -1,13 +1,17 @@
 // ===== UPLOAD: daily calling CSV (single or multi-day, column mapping, preview, save) =====
 // ===================== UPLOAD: CALLING DATA =====================
 let pendingParsed=null;
+let uploadFrom='', uploadTo='', uploadDefaultLob='Other', uploadDefaultCity=''; // optional date range chosen on the first screen
 function openUploadModal(){
   const root=document.getElementById('modalRoot');
   root.innerHTML = `<div class="overlay" id="ov1"><div class="modal">
-    <h3>Upload Daily Calling CSV</h3>
-    <div class="hint">Pick the date, default Type/City (used unless the file has its own LOB/City columns), then choose the CSV.</div>
+    <h3>Upload Calling CSV</h3>
+    <div class="hint">Choose the first and last date this file covers. Leave both blank to take every date found in the file. Pick the same date in both to save the whole file as one day.</div>
     <div class="field-row">
-      <div class="field"><label>Date this file covers</label><input type="date" id="uploadDate" value="${todayStr()}"></div>
+      <div class="field"><label>From date</label><input type="date" id="uploadFrom"></div>
+      <div class="field"><label>To date</label><input type="date" id="uploadTo"></div>
+    </div>
+    <div class="field-row">
       <div class="field"><label>Default Type / LOB (only for campaigns not in the known list)</label><select id="uploadLob">${LOBS.map(l=>`<option value="${l}">${l}</option>`).join('')}</select></div>
     </div>
     <div class="field"><label>Default City (optional — leave blank if not a city-ops file)</label>
@@ -23,6 +27,9 @@ function openUploadModal(){
 }
 function handleFileSelect(e){
   const file=e.target.files[0]; if(!file) return;
+  uploadDefaultLob=document.getElementById('uploadLob').value; uploadDefaultCity=document.getElementById('uploadCity').value;
+  uploadFrom=document.getElementById('uploadFrom').value; uploadTo=document.getElementById('uploadTo').value;
+  if(uploadFrom && uploadTo && uploadFrom>uploadTo){ [uploadFrom,uploadTo]=[uploadTo,uploadFrom]; }
   document.getElementById('fileStatus').textContent='Parsing…';
   Papa.parse(file,{header:true, skipEmptyLines:true, complete:(results)=>{
     pendingParsed={fileName:file.name, headers:results.meta.fields||[], rows:results.data};
@@ -77,9 +84,9 @@ function openMappingModal(){
     </div>
     <div class="field-row">
       <div class="field"><label>City column (optional, per-row override)</label><select id="mapCity">${opts(guess.citycol)}</select></div>
-      <div class="field"><label>Date column (optional — splits this file across multiple days)</label><select id="mapDateCol">${opts(guess.datecol)}</select></div>
+      <div class="field"><label>Date column ${(uploadFrom && uploadTo && uploadFrom===uploadTo)?'(not used — one day)':'*'}</label><select id="mapDateCol">${opts(guess.datecol)}</select></div>
     </div>
-    <div class="hint" style="margin-top:-6px;">Leave Date column empty to save the whole file under the single date you picked on the previous screen. Set it (e.g. a "Call Assigned Time" column) when one file covers several days — each distinct date found in that column is saved as its own day.</div>
+    <div class="hint" style="margin-top:-6px;">${(uploadFrom && uploadTo && uploadFrom===uploadTo) ? 'One-day mode: the whole file is saved under '+uploadFrom+'.' : 'Each distinct date found in the Date column (within your From–To range) is saved as its own day.'}</div>
     <div class="field"><label>Questionnaire / form columns (checked = treated as an answer)</label>
       <div class="checklist">${formCandidates.map(h=>`<label><input type="checkbox" class="formCk" value="${escapeHtml(h)}" ${(guess.formcols||[]).includes(h)?'checked':''}> ${escapeHtml(h)}</label>`).join('')}</div>
     </div>
@@ -188,23 +195,26 @@ function confirmMapping(){
   if(!map.campaign || !map.disposition){ toast('Campaign and Disposition columns are required'); return; }
   safeSet('yulu_col_map_v2_'+pendingParsed.headers.join('|').slice(0,100), JSON.stringify(map));
 
-  const defaultLob = document.getElementById('uploadLob').value;
-  const defaultCity = document.getElementById('uploadCity').value;
-  const fallbackDate = document.getElementById('uploadDate').value || todayStr();
+  const defaultLob = uploadDefaultLob;
+  const defaultCity = uploadDefaultCity;
 
   let groups = {};
   let unparsed = 0;
-  if(map.datecol){
+  const singleDay = uploadFrom && uploadTo && uploadFrom===uploadTo;
+  if(!singleDay && !map.datecol){ toast('Pick the Date column (e.g. Call_Assigned_Time) so the file can be split by day — or go Back and choose the same From and To date.'); return; }
+  let outOfRange = 0;
+  if(singleDay){
+    groups[uploadFrom] = pendingParsed.rows;
+  } else {
     pendingParsed.rows.forEach(row=>{
       const d = parseDateToYMD(row[map.datecol]);
       if(!d){ unparsed++; return; }
+      if((uploadFrom && d<uploadFrom) || (uploadTo && d>uploadTo)){ outOfRange++; return; }
       groups[d] = groups[d] || [];
       groups[d].push(row);
     });
-  } else {
-    groups[fallbackDate] = pendingParsed.rows;
   }
-
+  if(outOfRange) toast(`${outOfRange.toLocaleString()} row(s) outside ${uploadFrom||'start'} → ${uploadTo||'end'} were skipped`);
   const dates = Object.keys(groups).sort();
   if(dates.length===0){ toast('No rows with a parseable date were found — check the Date column mapping.'); return; }
   if(unparsed) toast(`${unparsed.toLocaleString()} row(s) had an unreadable date and were skipped`);

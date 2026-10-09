@@ -70,7 +70,7 @@ function setRange(start,end,label){ range={start,end,label}; renderFilterControl
 function renderUploadControls(){
   const el = document.getElementById('uploadControls');
   if(!canWrite){ el.innerHTML = `<button id="loginBtn">Editor Login</button>`; document.getElementById('loginBtn').onclick=openLoginModal; return; }
-  el.innerHTML = `<button class="primary" id="uploadCallBtn">＋ Upload Daily CSV</button><button id="uploadConvBtn">＋ Upload Conversion CSV</button><button id="logoutBtn">Log Out</button>`;
+  el.innerHTML = `<button class="primary" id="uploadCallBtn">＋ Upload Calling CSV (1 or many days)</button><button id="uploadConvBtn">＋ Upload Conversion CSV</button><button id="logoutBtn">Log Out</button>`;
   el.querySelector('#uploadCallBtn').onclick = openUploadModal;
   el.querySelector('#uploadConvBtn').onclick = openConversionUploadModal;
   el.querySelector('#logoutBtn').onclick = logout;
